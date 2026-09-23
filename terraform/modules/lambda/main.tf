@@ -19,3 +19,42 @@ resource "aws_lambda_function" "counter" {
 
   tags = { Environment = var.environment }
 }
+
+# ── Staging / Produzione reale (non Learner Lab) ─────────
+# Decommentare e rimuovere lab_role_arn dalla function quando
+# si dispone di un account AWS reale con permessi IAM completi.
+#
+# resource "aws_iam_role" "lambda_exec" {
+#   name = "${var.function_name}-role"
+#   assume_role_policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [{
+#       Effect    = "Allow"
+#       Principal = { Service = "lambda.amazonaws.com" }
+#       Action    = "sts:AssumeRole"
+#     }]
+#   })
+# }
+#
+# resource "aws_iam_role_policy" "dynamodb_access" {
+#   name = "${var.function_name}-dynamodb"
+#   role = aws_iam_role.lambda_exec.id
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [{
+#       Effect   = "Allow"
+#       Action   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+#       Resource = var.table_arn
+#     }]
+#   })
+# }
+#
+# resource "aws_iam_role_policy_attachment" "lambda_basic" {
+#   role       = aws_iam_role.lambda_exec.name
+#   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+# }
+#
+# Nella resource aws_lambda_function sostituire:
+#   role = var.lab_role_arn
+# con:
+#   role = aws_iam_role.lambda_exec.arn

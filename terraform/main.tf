@@ -22,10 +22,11 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# Regione attiva ricavata dall'account autenticato (equivale a sts get-caller-identity)
+# Regione e account attivi ricavati dall'account autenticato (equivale a sts get-caller-identity)
 data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
 
-# WAF creato nel root con provider us-east-1 e ARN passato come variabile al modulo
+# WAF in us-east-1, ARN passato al modulo cloudfront
 resource "aws_wafv2_web_acl" "cdn" {
   provider    = aws.us_east_1
   name        = "cloud-resume-waf-${var.environment}"
@@ -77,12 +78,37 @@ resource "aws_wafv2_web_acl" "cdn" {
   tags = { Environment = var.environment }
 }
 
+# OAC creato nel root per rompere la dipendenza circolare S3 ↔ CloudFront.
+# L'ARN della distribuzione è costruito deterministicamente dall'account ID
+# e passato a S3 prima che CloudFront esista.
+resource "aws_cloudfront_origin_access_control" "oac" {
+  name                              = "oac-${var.environment}"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+locals {
+  # ARN CloudFront costruito deterministicamente — non dipende dalla distribuzione
+  cloudfront_distribution_arn = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${module.cloudfront.distribution_id}"
+}
+
 # ── Moduli ──────────────────────────────────────────────
 
 module "s3" {
-  source       = "./modules/s3"
-  bucket_name  = var.bucket_name
-  environment  = var.environment
+  source                      = "./modules/s3"
+  bucket_name                 = var.bucket_name
+  environment                 = var.environment
+  cloudfront_distribution_arn = local.cloudfront_distribution_arn
+}
+
+module "cloudfront" {
+  source                 = "./modules/cloudfront"
+  bucket_regional_domain = module.s3.bucket_regional_domain
+  oac_id                 = aws_cloudfront_origin_access_control.oac.id
+  environment            = var.environment
+  price_class            = var.cloudfront_price_class
+  waf_acl_arn            = aws_wafv2_web_acl.cdn.arn
 }
 
 module "dynamodb" {
@@ -110,19 +136,6 @@ module "api_gateway" {
   aws_region        = data.aws_region.current.name
 }
 
-module "cloudfront" {
-  source              = "./modules/cloudfront"
-  s3_website_endpoint = module.s3.website_endpoint
-  environment         = var.environment
-  price_class         = var.cloudfront_price_class
-  waf_acl_arn         = aws_wafv2_web_acl.cdn.arn
-
-  providers = {
-    aws           = aws
-    aws.us_east_1 = aws.us_east_1
-  }
-}
-
 # ── Upload file frontend su S3 ───────────────────────────
 
 resource "aws_s3_object" "html" {
@@ -142,7 +155,6 @@ resource "aws_s3_object" "css" {
 }
 
 resource "aws_s3_object" "js" {
-  count        = fileexists("${path.root}/../frontend/script.js") ? 1 : 0
   bucket       = module.s3.bucket_id
   key          = "script.js"
   source       = "${path.root}/../frontend/script.js"
