@@ -1,18 +1,17 @@
-name: Deploy Cloud Resume
+name: Deploy Cloud Resume DEV
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  deploy-prod:
-    name: Deploy PROD (AWS)
+  deploy-dev:
+    name: Deploy DEV (Learner Lab)
     runs-on: ubuntu-latest
-    environment: prod
+    environment: dev
 
     env:
       TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
-      TF_VAR_environment: "prod"
+      TF_VAR_environment: "dev"
       TF_VAR_bucket_name: ${{ secrets.TF_VAR_BUCKET_NAME }}
       TF_VAR_dynamodb_table_name: ${{ secrets.TF_VAR_DYNAMODB_TABLE_NAME }}
       TF_VAR_lambda_function_name: ${{ secrets.TF_VAR_LAMBDA_FUNCTION_NAME }}
@@ -23,11 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (AWS reale)
+      - name: Configure AWS credentials (Learner Lab)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
