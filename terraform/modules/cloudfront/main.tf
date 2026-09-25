@@ -4,20 +4,33 @@ resource "aws_cloudfront_distribution" "cdn" {
   price_class         = var.price_class
   web_acl_id          = var.waf_acl_arn
 
-  origin {
-    domain_name = var.s3_website_endpoint
-    origin_id   = "S3-Website"
+  # PROD — OAC con bucket S3 diretto
+  dynamic "origin" {
+    for_each = var.use_oac ? [1] : []
+    content {
+      domain_name              = var.bucket_domain_name
+      origin_id                = "S3-OAC"
+      origin_access_control_id = var.oac_id
+    }
+  }
 
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
+  # DEV — custom origin con website endpoint S3
+  dynamic "origin" {
+    for_each = var.use_oac ? [] : [1]
+    content {
+      domain_name = var.s3_website_endpoint
+      origin_id   = "S3-Website"
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "http-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
     }
   }
 
   default_cache_behavior {
-    target_origin_id       = "S3-Website"
+    target_origin_id       = var.use_oac ? "S3-OAC" : "S3-Website"
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD"]
     cached_methods         = ["GET", "HEAD"]

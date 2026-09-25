@@ -42,3 +42,9 @@ variable "enable_cloudfront" {
   description = "Abilita CloudFront e WAF (false per dev su Learner Lab)"
   default     = true
 }
+
+variable "use_oac" {
+  type        = bool
+  description = "Usa OAC per S3 (true per prod, false per dev/Learner Lab)"
+  default     = true
+}

@@ -3,7 +3,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 4.0"
+      version = "~> 5.0"
     }
     archive = {
       source  = "hashicorp/archive"
@@ -86,28 +86,40 @@ resource "aws_wafv2_web_acl" "cdn" {
   tags = { Environment = var.environment }
 }
 
-# OAC non supportato dal Learner Lab — si usa custom origin con website endpoint
-# resource "aws_cloudfront_origin_access_control" "oac" {}
+# OAC — solo per prod (account reale), non supportato dal Learner Lab
+resource "aws_cloudfront_origin_access_control" "oac" {
+  count                             = var.use_oac ? 1 : 0
+  name                              = "oac-${var.environment}"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
 
 locals {
   lab_role_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/LabRole"
+  cloudfront_distribution_arn = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${var.enable_cloudfront ? module.cloudfront[0].distribution_id : ""}"
 }
 
 # ── Moduli ──────────────────────────────────────────────
 
 module "s3" {
-  source      = "./modules/s3"
-  bucket_name = var.bucket_name
-  environment = var.environment
+  source                      = "./modules/s3"
+  bucket_name                 = var.bucket_name
+  environment                 = var.environment
+  use_oac                     = var.use_oac
+  cloudfront_distribution_arn = local.cloudfront_distribution_arn
 }
 
 module "cloudfront" {
-  count                  = var.enable_cloudfront ? 1 : 0
-  source                 = "./modules/cloudfront"
-  s3_website_endpoint    = module.s3.website_endpoint
-  environment            = var.environment
-  price_class            = var.cloudfront_price_class
-  waf_acl_arn            = aws_wafv2_web_acl.cdn[0].arn
+  count               = var.enable_cloudfront ? 1 : 0
+  source              = "./modules/cloudfront"
+  s3_website_endpoint = module.s3.website_endpoint
+  bucket_domain_name  = module.s3.bucket_regional_domain
+  oac_id              = var.use_oac ? aws_cloudfront_origin_access_control.oac[0].id : ""
+  use_oac             = var.use_oac
+  environment         = var.environment
+  price_class         = var.cloudfront_price_class
+  waf_acl_arn         = aws_wafv2_web_acl.cdn[0].arn
 }
 
 module "dynamodb" {
@@ -122,6 +134,7 @@ module "lambda" {
   table_name           = module.dynamodb.table_name
   table_arn            = module.dynamodb.table_arn
   lab_role_arn         = local.lab_role_arn
+  use_oac              = var.use_oac
   environment          = var.environment
 }
 
