@@ -11,14 +11,14 @@ jobs:
     environment: prod
 
     env:
-      TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
+      TF_VAR_aws_region: "us-east-1"
       TF_VAR_environment: "prod"
-      TF_VAR_bucket_name: ${{ secrets.TF_VAR_BUCKET_NAME }}
-      TF_VAR_dynamodb_table_name: ${{ secrets.TF_VAR_DYNAMODB_TABLE_NAME }}
-      TF_VAR_lambda_function_name: ${{ secrets.TF_VAR_LAMBDA_FUNCTION_NAME }}
-      TF_VAR_api_name: ${{ secrets.TF_VAR_API_NAME }}
-      TF_VAR_lab_role_arn: ${{ secrets.TF_VAR_LAB_ROLE_ARN }}
+      TF_VAR_bucket_name: "cloud-resume-janice-brun-prod"
+      TF_VAR_dynamodb_table_name: "cloud-resume-counter"
+      TF_VAR_lambda_function_name: "cloud-resume-counter"
+      TF_VAR_api_name: "cloud-resume-api"
       TF_VAR_cloudfront_price_class: "PriceClass_100"
+      TF_VAR_enable_cloudfront: "true"
 
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +36,11 @@ jobs:
 
       - name: Terraform Init
         working-directory: terraform
-        run: terraform init
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          terraform init \
+            -backend-config=backend-prod.hcl \
+            -backend-config="bucket=cloud-resume-tfstate-prod-${ACCOUNT_ID}"
 
       - name: Terraform Apply
         working-directory: terraform

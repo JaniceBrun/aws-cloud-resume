@@ -28,13 +28,17 @@ variable "api_name" {
   description = "Nome dell'API Gateway"
 }
 
-variable "lab_role_arn" {
-  type        = string
-  description = "ARN del LabRole predefinito di AWS Learner Lab"
-}
+# lab_role_arn non è una variabile — viene costruito dinamicamente
+# in main.tf usando data.aws_caller_identity.current.account_id
 
 variable "cloudfront_price_class" {
   type        = string
   description = "Price class CloudFront (PriceClass_100 | PriceClass_200 | PriceClass_All)"
   default     = "PriceClass_100"
+}
+
+variable "enable_cloudfront" {
+  type        = bool
+  description = "Abilita CloudFront e WAF (false per dev su Learner Lab)"
+  default     = true
 }

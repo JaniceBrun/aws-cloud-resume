@@ -3,13 +3,14 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 4.0"
     }
     archive = {
       source  = "hashicorp/archive"
       version = "~> 2.0"
     }
   }
+
 }
 
 provider "aws" {
@@ -28,17 +29,22 @@ data "aws_caller_identity" "current" {}
 
 # WAF in us-east-1, ARN passato al modulo cloudfront
 resource "aws_wafv2_web_acl" "cdn" {
+  count       = var.enable_cloudfront ? 1 : 0
   provider    = aws.us_east_1
   name        = "cloud-resume-waf-${var.environment}"
   scope       = "CLOUDFRONT"
   description = "WAF per CloudFront cloud-resume"
 
-  default_action { allow {} }
+  default_action {
+    allow {}
+  }
 
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 1
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     statement {
       managed_rule_group_statement {
         name        = "AWSManagedRulesCommonRuleSet"
@@ -55,7 +61,9 @@ resource "aws_wafv2_web_acl" "cdn" {
   rule {
     name     = "AWSManagedRulesAmazonIpReputationList"
     priority = 2
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     statement {
       managed_rule_group_statement {
         name        = "AWSManagedRulesAmazonIpReputationList"
@@ -78,37 +86,28 @@ resource "aws_wafv2_web_acl" "cdn" {
   tags = { Environment = var.environment }
 }
 
-# OAC creato nel root per rompere la dipendenza circolare S3 ↔ CloudFront.
-# L'ARN della distribuzione è costruito deterministicamente dall'account ID
-# e passato a S3 prima che CloudFront esista.
-resource "aws_cloudfront_origin_access_control" "oac" {
-  name                              = "oac-${var.environment}"
-  origin_access_control_origin_type = "s3"
-  signing_behavior                  = "always"
-  signing_protocol                  = "sigv4"
-}
+# OAC non supportato dal Learner Lab — si usa custom origin con website endpoint
+# resource "aws_cloudfront_origin_access_control" "oac" {}
 
 locals {
-  # ARN CloudFront costruito deterministicamente — non dipende dalla distribuzione
-  cloudfront_distribution_arn = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${module.cloudfront.distribution_id}"
+  lab_role_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/LabRole"
 }
 
 # ── Moduli ──────────────────────────────────────────────
 
 module "s3" {
-  source                      = "./modules/s3"
-  bucket_name                 = var.bucket_name
-  environment                 = var.environment
-  cloudfront_distribution_arn = local.cloudfront_distribution_arn
+  source      = "./modules/s3"
+  bucket_name = var.bucket_name
+  environment = var.environment
 }
 
 module "cloudfront" {
+  count                  = var.enable_cloudfront ? 1 : 0
   source                 = "./modules/cloudfront"
-  bucket_regional_domain = module.s3.bucket_regional_domain
-  oac_id                 = aws_cloudfront_origin_access_control.oac.id
+  s3_website_endpoint    = module.s3.website_endpoint
   environment            = var.environment
   price_class            = var.cloudfront_price_class
-  waf_acl_arn            = aws_wafv2_web_acl.cdn.arn
+  waf_acl_arn            = aws_wafv2_web_acl.cdn[0].arn
 }
 
 module "dynamodb" {
@@ -122,7 +121,7 @@ module "lambda" {
   function_name        = var.lambda_function_name
   table_name           = module.dynamodb.table_name
   table_arn            = module.dynamodb.table_arn
-  lab_role_arn         = var.lab_role_arn
+  lab_role_arn         = local.lab_role_arn
   environment          = var.environment
 }
 
