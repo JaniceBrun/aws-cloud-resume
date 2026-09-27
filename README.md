@@ -1,6 +1,6 @@
 # AWS Cloud Resume 🐱
 
-[🐱 Visitami!](https://d2p8tga5cm2arz.cloudfront.net)
+[🐱 Visitami!🐱](https://d2p8tga5cm2arz.cloudfront.net)
 
 Questo progetto è stato il mio modo di mettere in pratica, in modo concreto, tutte le cose che avevo imparato a livello teorico su AWS, Terraform, serverless e deployment. È un cloud resume challenge, ma per me è stato anche un piccolo laboratorio pratico: un progetto divertente, utile e decisamente appassionante.
 
