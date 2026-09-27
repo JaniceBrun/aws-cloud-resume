@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   deploy-prod:
     name: Deploy PROD (AWS)
@@ -11,12 +15,9 @@ jobs:
     environment: prod
 
     env:
-      TF_VAR_aws_region: "us-east-1"
+      AWS_REGION: "eu-north-1"
+      TF_VAR_aws_region: "eu-north-1"
       TF_VAR_environment: "prod"
-      TF_VAR_bucket_name: "cloud-resume-janice-brun-prod"
-      TF_VAR_dynamodb_table_name: "cloud-resume-counter"
-      TF_VAR_lambda_function_name: "cloud-resume-counter"
-      TF_VAR_api_name: "cloud-resume-api"
       TF_VAR_cloudfront_price_class: "PriceClass_100"
       TF_VAR_enable_cloudfront: "true"
       TF_VAR_use_oac: "true"
@@ -24,12 +25,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (AWS reale)
+      - name: Configure AWS credentials via GitHub OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: "us-east-1"
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-oicd-cloudresume
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set Terraform variables from runtime context
+        shell: bash
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REPO_OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+
+          echo "TF_VAR_bucket_name=cloud-resume-${REPO_OWNER}-prod" >> "$GITHUB_ENV"
+          echo "TF_VAR_dynamodb_table_name=cloud-resume-counter" >> "$GITHUB_ENV"
+          echo "TF_VAR_lambda_function_name=cloud-resume-counter" >> "$GITHUB_ENV"
+          echo "TF_VAR_api_name=cloud-resume-api" >> "$GITHUB_ENV"
+          echo "TF_STATE_BUCKET=cloud-resume-tfstate-prod-${ACCOUNT_ID}" >> "$GITHUB_ENV"
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -38,33 +50,32 @@ jobs:
       - name: Terraform Init
         working-directory: terraform
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           terraform init \
             -backend-config=backend-prod.hcl \
-            -backend-config="bucket=cloud-resume-tfstate-prod-${ACCOUNT_ID}"
+            -backend-config="bucket=${TF_STATE_BUCKET}"
 
       - name: Terraform Apply
         working-directory: terraform
         run: terraform apply -auto-approve
 
-      - name: Leggi output Terraform
+      - name: Read Terraform outputs
         working-directory: terraform
         run: |
-          echo "API_URL=$(terraform output -raw api_gateway_url)" >> $GITHUB_ENV
-          echo "CF_DISTRIBUTION_ID=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_ENV
-          echo "BUCKET_NAME=$(terraform output -raw bucket_name)" >> $GITHUB_ENV
+          echo "API_URL=$(terraform output -raw api_gateway_url)" >> "$GITHUB_ENV"
+          echo "CF_DISTRIBUTION_ID=$(terraform output -raw cloudfront_distribution_id)" >> "$GITHUB_ENV"
+          echo "BUCKET_NAME=$(terraform output -raw bucket_name)" >> "$GITHUB_ENV"
 
-      - name: Sostituisci placeholder in script.js
+      - name: Replace placeholder in script.js
         run: sed -i "s|PLACEHOLDER_API_URL|${{ env.API_URL }}|g" frontend/script.js
 
-      - name: Sync frontend su S3
+      - name: Sync frontend to S3
         run: |
           aws s3 sync frontend/ s3://${{ env.BUCKET_NAME }}/ \
             --delete \
             --cache-control "max-age=3600" \
             --exclude "*.DS_Store"
 
-      - name: Invalida cache CloudFront
+      - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
             --distribution-id ${{ env.CF_DISTRIBUTION_ID }} \

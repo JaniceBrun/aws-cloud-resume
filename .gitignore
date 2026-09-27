@@ -9,3 +9,4 @@ Thumbs.db
 
 # mio da implementare
 note.md
+.github/workflows/deploy-dev.yml
