@@ -136,9 +136,9 @@ li {
    PROFILE PHOTO
    ============================================ */
 .profile-photo {
-    width: 30px;
-    height: 270px;
-    padding: 12px 12px;
+    width: 432px;
+    height: 324px;
+    padding: 10px;
     border-radius: 0;
     overflow: hidden;
     border: 2px solid white;
@@ -165,8 +165,8 @@ li {
 /* Responsive - Tablet */
 @media (max-width: 768px) {
     .profile-photo {
-        width: 280px;
-        height: 210px;
+        width: 336px;
+        height: 252px;
         border-width: 2px;
         margin: 0 auto var(--spacing-md) auto;
     }
@@ -175,8 +175,8 @@ li {
 /* Responsive - Mobile */
 @media (max-width: 480px) {
     .profile-photo {
-        width: 240px;
-        height: 180px;
+        width: 288px;
+        height: 216px;
         border-width: 2px;
         margin: 0 auto var(--spacing-sm) auto;
     }
