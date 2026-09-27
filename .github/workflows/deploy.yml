@@ -30,6 +30,11 @@ jobs:
               echo "Repository: $GITHUB_REPOSITORY"
               echo "Ref: $GITHUB_REF"
               echo "Actor: $GITHUB_ACTOR"
+
+      - name: Test OIDC token retrieval
+        run: |
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL=${ACTIONS_ID_TOKEN_REQUEST_URL:+SET}"
+          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+SET}"
       - name: Debug AWS_ACCOUNT_ID secret
         env:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
