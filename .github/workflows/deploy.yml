@@ -30,6 +30,16 @@ jobs:
               echo "Repository: $GITHUB_REPOSITORY"
               echo "Ref: $GITHUB_REF"
               echo "Actor: $GITHUB_ACTOR"
+      - name: Debug AWS_ACCOUNT_ID secret
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          if [ -z "$AWS_ACCOUNT_ID" ]; then
+          echo "AWS_ACCOUNT_ID EMPTY"
+          exit 1
+          else
+          echo "AWS_ACCOUNT_ID PRESENT"
+          fi              
 
       - name: Configure AWS credentials via GitHub OIDC
         uses: aws-actions/configure-aws-credentials@v4
