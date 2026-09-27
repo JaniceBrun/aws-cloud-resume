@@ -39,7 +39,12 @@ jobs:
           exit 1
           else
           echo "AWS_ACCOUNT_ID PRESENT"
-          fi              
+          fi
+      - name: Debug AWS_ACCOUNT_ID length
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          echo "Length=${#AWS_ACCOUNT_ID}"
 
       - name: Configure AWS credentials via GitHub OIDC
         uses: aws-actions/configure-aws-credentials@v4
