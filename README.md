@@ -244,8 +244,4 @@ Ed è stato divertente. Io mi piace molto l’aspetto pratico della tecnologia, 
 
 ## Nota finale
 
-Questo progetto è stato il mio modo di trasformare teoria in esperienza reale. Un po’ come mettere le mani in pasta: magari un po’ sporche, ma davvero molto istruttive.
-
-E, diciamoci la verità, è molto più bello così.
-
-
+Questo progetto è stato il mio modo di trasformare teoria in esperienza reale.
