@@ -101,7 +101,7 @@ jobs:
       - name: Terraform Init
         working-directory: terraform
         run: |
-          terraform init -reconfigure -migrate-state \
+          terraform init -migrate-state \
             -backend-config=backend-prod.hcl \
             -backend-config="bucket=${TF_STATE_BUCKET}"
 
