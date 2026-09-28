@@ -73,9 +73,22 @@ jobs:
         shell: bash
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REPO_OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
 
-          echo "TF_VAR_bucket_name=cloud-resume-${REPO_OWNER}-prod" >> "$GITHUB_ENV"
+          # Prefer the existing S3 bucket that already hosts the frontend, otherwise
+          # fall back to the project’s current production name.
+          EXISTING_BUCKET=""
+          for bucket in $(aws s3api list-buckets --query "Buckets[?starts_with(Name, 'cloud-resume-')].Name" --output text 2>/dev/null); do
+            if aws s3api head-object --bucket "$bucket" --key "index.html" >/dev/null 2>&1; then
+              EXISTING_BUCKET="$bucket"
+              break
+            fi
+          done
+
+          if [ -z "$EXISTING_BUCKET" ]; then
+            EXISTING_BUCKET="cloud-resume-janice-prd"
+          fi
+
+          echo "TF_VAR_bucket_name=${EXISTING_BUCKET}" >> "$GITHUB_ENV"
           echo "TF_VAR_dynamodb_table_name=cloud-resume-counter" >> "$GITHUB_ENV"
           echo "TF_VAR_lambda_function_name=cloud-resume-counter" >> "$GITHUB_ENV"
           echo "TF_VAR_api_name=cloud-resume-api" >> "$GITHUB_ENV"
@@ -88,9 +101,13 @@ jobs:
       - name: Terraform Init
         working-directory: terraform
         run: |
-          terraform init \
+          terraform init -reconfigure -migrate-state \
             -backend-config=backend-prod.hcl \
             -backend-config="bucket=${TF_STATE_BUCKET}"
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
 
       - name: Terraform Apply
         working-directory: terraform

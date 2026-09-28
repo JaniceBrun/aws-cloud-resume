@@ -1,5 +1,11 @@
 terraform {
   required_version = ">= 1.5"
+
+  backend "s3" {
+    # Il bucket viene impostato dinamicamente in init via backend-prod.hcl o backend-dev.hcl
+    # e dai workflow/GitHub Actions, evitando hardcoded del nome S3.
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -10,7 +16,6 @@ terraform {
       version = "~> 2.0"
     }
   }
-
 }
 
 provider "aws" {
